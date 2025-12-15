@@ -19,7 +19,7 @@
 // =====================================================
 // FIRMWARE VERSION - CHANGE THIS TO TRIGGER OTA
 // =====================================================
-#define FW_VERSION "3.00"
+#define FW_VERSION "2.00"
 
 // =====================================================
 // WIFI CONFIGURATION
@@ -273,18 +273,24 @@ void checkForOTAUpdate() {
 // PERFORM OTA UPDATE
 // =====================================================
 bool performOTAUpdate() {
-  // ULTIMATE FIX: HTTPS with EXTREME optimizations
+  // NUCLEAR OPTION: Maximum stability settings
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
   
-  // CRITICAL: 1024 RX buffer minimum for SSL stability, 512 TX buffer
-  client.setBufferSizes(1024, 512);
+  // PROVEN STABLE: 2048 RX buffer is the sweet spot
+  client.setBufferSizes(2048, 512);
   
-  // CRITICAL: Set TCP timeout to 10 MINUTES (600 seconds)
-  client.setTimeout(600000);
+  // Disable SSL session cache (saves heap during transfer)
+  client.setSession(nullptr);
   
-  // Keep connection alive
+  // CRITICAL: Set TCP timeout to 15 MINUTES 
+  client.setTimeout(900000);
+  
+  // TCP optimizations
   client.setNoDelay(true);
+  
+  // Boost WiFi power to maximum
+  WiFi.setOutputPower(20.5);
   
   // Configure ESPhttpUpdate with MAXIMUM tolerance
   ESPhttpUpdate.setLedPin(LED_PIN, LOW);
