@@ -15,11 +15,12 @@
 #include <HTTPClient.h>
 #include <HTTPUpdate.h>
 #include <WiFiClientSecure.h>
+#include <base64.h>  // ESP32 built-in base64 decoder
 
 // =====================================================
 // FIRMWARE VERSION - CHANGE ONLY THIS ONE LINE!
 // =====================================================
-#define FW_VERSION "9.00"
+#define FW_VERSION "10.00"
 
 // =====================================================
 // WIFI CONFIGURATION
@@ -226,32 +227,11 @@ void checkForOTAUpdate() {
   int contentEnd = response.indexOf("\"", contentStart);
   String base64Content = response.substring(contentStart, contentEnd);
   
-  // Decode base64 (GitHub API returns content as base64)
-  // Simple base64 decode for version string (numbers and dots only)
-  String remoteVersion = "";
-  base64Content.replace("\\n", ""); // Remove newlines from base64
+  // Remove escaped newlines from JSON
+  base64Content.replace("\\n", "");
   
-  // For simple version strings, we can extract directly
-  // GitHub returns base64, but version.txt is small, let's decode it
-  const char* b64 = base64Content.c_str();
-  int len = base64Content.length();
-  
-  // Simple base64 decode for ASCII
-  const char b64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  for(int i = 0; i < len; i += 4) {
-    uint32_t block = 0;
-    for(int j = 0; j < 4 && i+j < len; j++) {
-      char c = b64[i+j];
-      if(c == '=') break;
-      const char* p = strchr(b64chars, c);
-      if(p) block = (block << 6) | (p - b64chars);
-    }
-    for(int j = 2; j >= 0; j--) {
-      char c = (block >> (j * 8)) & 0xFF;
-      if(c >= 32 && c <= 126) remoteVersion += c;
-    }
-  }
-  
+  // Decode base64 using ESP32 built-in decoder
+  String remoteVersion = base64::decode(base64Content);
   remoteVersion.trim();
   
   Serial.print("[OTA] Remote version: ");
