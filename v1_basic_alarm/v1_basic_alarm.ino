@@ -18,7 +18,7 @@
 // =====================================================
 // FIRMWARE VERSION - CHANGE THIS TO TRIGGER OTA
 // =====================================================
-#define FW_VERSION "1.00"
+#define FW_VERSION "0.00"
 
 // =====================================================
 // WIFI CONFIGURATION
@@ -186,6 +186,7 @@ void checkForOTAUpdate() {
   
   HTTPClient http;
   http.setTimeout(30000);
+  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);  // Follow HTTP redirects
   
   // Use cache busting to ensure we get the latest version
   String versionUrl = String(VERSION_URL) + "?t=" + String(millis());
