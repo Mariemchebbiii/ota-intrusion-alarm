@@ -15,7 +15,7 @@
 #include <ESP8266httpUpdate.h>
 #include <WiFiClientSecureBearSSL.h>
 
-#define FW_VERSION "2.05"
+#define FW_VERSION "2.06"
 
 // ============================================
 // WiFi Configuration
@@ -172,20 +172,38 @@ void checkForUpdate() {
   Serial.print("   URL: ");
   Serial.println(FW_URL);
   
-  // Create secure client with proper buffers for SSL
+  // Create secure client with optimized settings
   BearSSL::WiFiClientSecure updateClient;
   updateClient.setInsecure();
-  updateClient.setTimeout(60000);
-  updateClient.setBufferSizes(4096, 512); // Larger RX buffer for firmware chunks
+  updateClient.setTimeout(120000); // 2 minutes total timeout
+  updateClient.setBufferSizes(2048, 512); // Balanced buffers
   
-  // Configure updater
+  // Configure updater with extended timeouts
   ESPhttpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   ESPhttpUpdate.rebootOnUpdate(true);
   ESPhttpUpdate.closeConnectionsOnUpdate(true);
   
-  Serial.println("   Demarrage du telechargement...");
+  // Increase LED timeout for slow networks
+  ESPhttpUpdate.setLedPin(LED_BUILTIN, LOW);
   
-  t_httpUpdate_return ret = ESPhttpUpdate.update(updateClient, FW_URL);
+  Serial.println("   Demarrage du telechargement...");
+  Serial.println("   Cela peut prendre 1-2 minutes...");
+  
+  // Attempt update with retry on timeout
+  t_httpUpdate_return ret = HTTP_UPDATE_FAILED;
+  for (int attempt = 1; attempt <= 2; attempt++) {
+    if (attempt > 1) {
+      Serial.printf("   Nouvelle tentative %d/2...\n", attempt);
+      delay(2000);
+      updateClient.stop();
+    }
+    
+    ret = ESPhttpUpdate.update(updateClient, FW_URL);
+    
+    if (ret != HTTP_UPDATE_FAILED || ESPhttpUpdate.getLastError() != -6) {
+      break; // Success or non-timeout error
+    }
+  }
 
   switch (ret) {
     case HTTP_UPDATE_OK:
