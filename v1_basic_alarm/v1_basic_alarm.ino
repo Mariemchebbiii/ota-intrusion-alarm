@@ -15,7 +15,7 @@
 #include <ESP8266httpUpdate.h>
 #include <WiFiClientSecureBearSSL.h>
 
-#define FW_VERSION "2.04"
+#define FW_VERSION "2.05"
 
 // ============================================
 // WiFi Configuration
@@ -106,11 +106,13 @@ void checkForUpdate() {
     // Use scope to auto-free memory after version check
     BearSSL::WiFiClientSecure client;
     client.setInsecure();
-    client.setTimeout(10000);
-    client.setBufferSizes(512, 512); // Minimal buffers for version check
+    client.setTimeout(15000);
+    // Buffer sizes must be at least 1024 for SSL handshake to work!
+    client.setBufferSizes(2048, 512);
     
     HTTPClient https;
-    https.setTimeout(10000);
+    https.setTimeout(15000);
+    https.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     
     Serial.print("1. Lecture version: ");
     Serial.println(VERSION_URL);
@@ -120,6 +122,10 @@ void checkForUpdate() {
       return;
     }
 
+    // Add headers for GitHub
+    https.addHeader("User-Agent", "ESP8266-OTA");
+    https.addHeader("Accept", "*/*");
+    
     int httpCode = https.GET();
     Serial.printf("   HTTP Response: %d\n", httpCode);
     
@@ -166,11 +172,11 @@ void checkForUpdate() {
   Serial.print("   URL: ");
   Serial.println(FW_URL);
   
-  // Create secure client with optimized buffers
+  // Create secure client with proper buffers for SSL
   BearSSL::WiFiClientSecure updateClient;
   updateClient.setInsecure();
   updateClient.setTimeout(60000);
-  updateClient.setBufferSizes(1024, 512); // Optimized: larger RX for download, small TX
+  updateClient.setBufferSizes(4096, 512); // Larger RX buffer for firmware chunks
   
   // Configure updater
   ESPhttpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
