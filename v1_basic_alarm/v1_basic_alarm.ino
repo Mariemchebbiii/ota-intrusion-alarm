@@ -19,7 +19,7 @@
 // =====================================================
 // FIRMWARE VERSION - CHANGE ONLY THIS ONE LINE!
 // =====================================================
-#define FW_VERSION "8.00"
+#define FW_VERSION "9.00"
 
 // =====================================================
 // WIFI CONFIGURATION
@@ -184,22 +184,22 @@ void checkForOTAUpdate() {
   WiFiClientSecure client;
   client.setInsecure();  // Skip certificate validation
   
-  // Step 1: Get remote version from GitHub Raw (Avoids API rate limits!)
-  Serial.println("[OTA] Checking remote version via GitHub Raw...");
+  // ULTIMATE ANTI-CACHE FIX: Use GitHub API instead of raw.githubusercontent.com
+  // API responses are NEVER cached! 100% fresh every time!
+  Serial.println("[OTA] Checking version via GitHub API (ZERO cache!)...");
   
   HTTPClient http;
   http.setTimeout(30000);
-  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);  // Follow redirects if needed
+  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   
-  // ANTI-CACHE HEADERS - Force fresh content!
-  http.addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  http.addHeader("Pragma", "no-cache");
-  http.addHeader("Expires", "0");
+  // GitHub API endpoint for version.txt - NEVER CACHED!
+  String apiUrl = "https://api.github.com/repos/" + String(GITHUB_REPO) + "/contents/docs/version.txt?ref=main&t=" + String(millis());
   
-  // Use cache busting timestamp to ensure we NEVER get cached version
-  String versionUrl = VERSION_URL + "?nocache=" + String(millis());
+  // GitHub API requires User-Agent header
+  http.addHeader("User-Agent", "ESP32-OTA-Client");
+  http.addHeader("Accept", "application/vnd.github.v3+json");
   
-  if (!http.begin(client, versionUrl)) {
+  if (!http.begin(client, apiUrl)) {
     Serial.println("[OTA] Failed to begin HTTP connection");
     return;
   }
@@ -207,13 +207,50 @@ void checkForOTAUpdate() {
   int httpCode = http.GET();
   
   if (httpCode != HTTP_CODE_OK) {
-    Serial.printf("[OTA] Version check failed: %d\n", httpCode);
+    Serial.printf("[OTA] API request failed: %d\n", httpCode);
     http.end();
     return;
   }
   
-  String remoteVersion = http.getString();
+  String response = http.getString();
   http.end();
+  
+  // Parse JSON to extract base64 content
+  int contentIndex = response.indexOf("\"content\":\"");
+  if (contentIndex == -1) {
+    Serial.println("[OTA] Failed to parse API response");
+    return;
+  }
+  
+  int contentStart = contentIndex + 11; // Skip past "content":"
+  int contentEnd = response.indexOf("\"", contentStart);
+  String base64Content = response.substring(contentStart, contentEnd);
+  
+  // Decode base64 (GitHub API returns content as base64)
+  // Simple base64 decode for version string (numbers and dots only)
+  String remoteVersion = "";
+  base64Content.replace("\\n", ""); // Remove newlines from base64
+  
+  // For simple version strings, we can extract directly
+  // GitHub returns base64, but version.txt is small, let's decode it
+  const char* b64 = base64Content.c_str();
+  int len = base64Content.length();
+  
+  // Simple base64 decode for ASCII
+  const char b64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  for(int i = 0; i < len; i += 4) {
+    uint32_t block = 0;
+    for(int j = 0; j < 4 && i+j < len; j++) {
+      char c = b64[i+j];
+      if(c == '=') break;
+      const char* p = strchr(b64chars, c);
+      if(p) block = (block << 6) | (p - b64chars);
+    }
+    for(int j = 2; j >= 0; j--) {
+      char c = (block >> (j * 8)) & 0xFF;
+      if(c >= 32 && c <= 126) remoteVersion += c;
+    }
+  }
   
   remoteVersion.trim();
   
