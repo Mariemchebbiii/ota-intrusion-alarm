@@ -28,10 +28,10 @@ const char* WIFI_SSID = "TOPNET_2FB0";
 const char* WIFI_PASS = "3m3smnb68l";
 
 // =====================================================
-// OTA URLs - Using jsDelivr CDN for reliability
+// OTA URLs - Using GitHub raw (simpler SSL for ESP8266)
 // =====================================================
-const char* VERSION_URL = "https://cdn.jsdelivr.net/gh/Mariemchebbiii/ota-intrusion-alarm@main/docs/version.txt";
-const char* FIRMWARE_URL = "https://cdn.jsdelivr.net/gh/Mariemchebbiii/ota-intrusion-alarm@main/docs/firmware.bin";
+const char* VERSION_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/version.txt";
+const char* FIRMWARE_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/firmware.bin";
 
 // =====================================================
 // PIN CONFIGURATION
@@ -256,8 +256,8 @@ bool performOTAUpdate() {
   BearSSL::WiFiClientSecure client;
   client.setInsecure();
   
-  // CRITICAL: Absolute minimum buffer (512/512) saves maximum heap
-  client.setBufferSizes(512, 512);
+  // CRITICAL: 1024 RX buffer minimum for SSL stability, 512 TX buffer
+  client.setBufferSizes(1024, 512);
   
   // CRITICAL: Set TCP timeout to 10 MINUTES (600 seconds)
   client.setTimeout(600000);
