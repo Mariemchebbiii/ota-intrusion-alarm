@@ -119,6 +119,8 @@ jobs:
 
       - name: Update OTA Files in docs/
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
@@ -137,7 +139,7 @@ jobs:
             echo "✅ No changes to docs folder"
           else
             git commit -m "🤖 Auto-update OTA firmware v${VERSION}"
-            git push
+            git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
             echo "✅ Updated docs/firmware.bin and docs/version.txt"
           fi
 
