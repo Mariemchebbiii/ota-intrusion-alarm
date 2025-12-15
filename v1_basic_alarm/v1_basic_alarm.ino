@@ -19,7 +19,7 @@
 // =====================================================
 // FIRMWARE VERSION - CHANGE THIS TO TRIGGER OTA
 // =====================================================
-#define FW_VERSION "2.00"
+#define FW_VERSION "1.00"
 
 // =====================================================
 // WIFI CONFIGURATION
@@ -323,16 +323,53 @@ bool performOTAUpdate() {
     Serial.printf("[UPDATE] Error: %d - %s\n", error, ESPhttpUpdate.getLastErrorString().c_str());
   });
   
-  // Use HTTPS with cache-busting
-  String firmwareUrl = String(FIRMWARE_URL) + "?t=" + String(millis());
+  // Get firmware download URL from GitHub Release Assets API
+  Serial.println("[UPDATE] Getting firmware download URL from GitHub...");
   
-  Serial.println("[UPDATE] Downloading via HTTPS...");
-  Serial.println("[UPDATE] WARNING: This is SLOW on ESP8266!");
+  HTTPClient httpAsset;
+  httpAsset.setTimeout(30000);
+  
+  String apiUrl = "https://api.github.com/repos/Mariemchebbiii/ota-intrusion-alarm/releases/latest";
+  
+  BearSSL::WiFiClientSecure clientApi;
+  clientApi.setInsecure();
+  clientApi.setBufferSizes(2048, 512);
+  
+  if (!httpAsset.begin(clientApi, apiUrl)) {
+    Serial.println("[UPDATE] Failed to connect to GitHub API");
+    return true;
+  }
+  
+  httpAsset.addHeader("User-Agent", "ESP8266-OTA");
+  int httpCode = httpAsset.GET();
+  
+  if (httpCode != HTTP_CODE_OK) {
+    Serial.printf("[UPDATE] API request failed: %d\n", httpCode);
+    httpAsset.end();
+    return true;
+  }
+  
+  String response = httpAsset.getString();
+  httpAsset.end();
+  
+  // Extract firmware download URL from assets
+  // Find "browser_download_url" for firmware.bin
+  int urlIndex = response.indexOf("\"browser_download_url\":\"");
+  if (urlIndex == -1) {
+    Serial.println("[UPDATE] Could not find firmware URL in release");
+    return true;
+  }
+  
+  int urlStart = urlIndex + 24;
+  int urlEnd = response.indexOf("\"", urlStart);
+  String firmwareUrl = response.substring(urlStart, urlEnd);
+  
+  Serial.println("[UPDATE] Downloading from GitHub Release CDN...");
   Serial.println(firmwareUrl);
   Serial.print("[UPDATE] Free heap: ");
   Serial.println(ESP.getFreeHeap());
   
-  // Perform update with 10-minute timeout tolerance
+  // Perform update with direct release asset URL (better CDN!)
   t_httpUpdate_return result = ESPhttpUpdate.update(client, firmwareUrl);
   
   switch (result) {
