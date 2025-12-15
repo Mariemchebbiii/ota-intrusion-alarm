@@ -16,9 +16,9 @@
 #include <WiFiClientSecure.h>
 
 // =====================================================
-// FIRMWARE VERSION - CHANGE THIS TO TRIGGER OTA
+// FIRMWARE VERSION - CHANGE ONLY THIS ONE LINE!
 // =====================================================
-#define FW_VERSION "4.00"
+#define FW_VERSION "1.00"
 
 // =====================================================
 // WIFI CONFIGURATION
@@ -27,10 +27,11 @@ const char* WIFI_SSID = "TOPNET_2FB0";
 const char* WIFI_PASS = "3m3smnb68l";
 
 // =====================================================
-// OTA URLs - Using HTTPS (GitHub requires it!)
+// OTA URLs - AUTO-GENERATED FROM VERSION (Don't edit!)
 // =====================================================
-const char* VERSION_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/version.txt";
-const char* FIRMWARE_URL = "https://github.com/Mariemchebbiii/ota-intrusion-alarm/releases/download/v3.00/firmware.bin";
+const char* GITHUB_REPO = "Mariemchebbiii/ota-intrusion-alarm";
+const char* VERSION_URL = "https://raw.githubusercontent.com/" GITHUB_REPO "/main/docs/version.txt";
+// Firmware URL is built dynamically using FW_VERSION - see performOTAUpdate()
 
 // =====================================================
 // PIN CONFIGURATION (ESP32 pins)
@@ -263,8 +264,11 @@ bool performOTAUpdate() {
   httpUpdate.rebootOnUpdate(true);
   httpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   
-  // ANTI-CACHE: Use unique timestamp + random number for absolute cache bypass
-  String firmwareUrl = String(FIRMWARE_URL) + "?nocache=" + String(millis()) + String(random(10000));
+  // Build firmware URL dynamically from current version (PERMANENT FIX!)
+  String firmwareUrl = "https://github.com/" + String(GITHUB_REPO) + "/releases/download/v" + String(FW_VERSION) + "/firmware.bin";
+  
+  // ANTI-CACHE: Add unique query params to bypass all caching
+  firmwareUrl += "?nocache=" + String(millis()) + String(random(10000));
   
   // Set callbacks for progress (ESP32 style)
   httpUpdate.onStart([]() {
