@@ -19,7 +19,7 @@
 // =====================================================
 // FIRMWARE VERSION - CHANGE ONLY THIS ONE LINE!
 // =====================================================
-#define FW_VERSION "5.00"
+#define FW_VERSION "6.00"
 
 // =====================================================
 // WIFI CONFIGURATION
@@ -239,7 +239,7 @@ void checkForOTAUpdate() {
   for (int retry = 1; retry <= 3; retry++) {
     Serial.printf("[OTA] Attempt %d/3...\n", retry);
     
-    if (performOTAUpdate(remoteVersion)) {
+    if (performOTAUpdate()) {
       // If we get here, update failed but we can retry
       Serial.println("[OTA] Retrying in 5 seconds...");
       delay(5000);
@@ -255,7 +255,7 @@ void checkForOTAUpdate() {
 // =====================================================
 // PERFORM OTA UPDATE - ESP32 EDITION (FAST & RELIABLE!)
 // =====================================================
-bool performOTAUpdate(String newVersion) {
+bool performOTAUpdate() {
   // Use HTTPS (GitHub requires it)
   WiFiClientSecure client;
   client.setInsecure();  // Skip certificate validation for simplicity
@@ -265,8 +265,9 @@ bool performOTAUpdate(String newVersion) {
   httpUpdate.rebootOnUpdate(true);
   httpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   
-  // Build firmware URL using the NEW version (not current!) - THIS IS THE FIX!
-  String firmwareUrl = "https://github.com/" + String(GITHUB_REPO) + "/releases/download/v" + newVersion + "/firmware.bin";
+  // PERMANENT FIX: Download from docs/firmware.bin (auto-updated by GitHub Actions)
+  // This is ALWAYS in sync with version.txt - no release dependency!
+  String firmwareUrl = "https://raw.githubusercontent.com/" + String(GITHUB_REPO) + "/main/docs/firmware.bin";
   
   // ANTI-CACHE: Add unique query params to bypass all caching
   firmwareUrl += "?nocache=" + String(millis()) + String(random(10000));
