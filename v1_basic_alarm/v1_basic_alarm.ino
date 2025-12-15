@@ -6,22 +6,13 @@
 
 #define FW_VERSION "2.00"
 
-// ============================================
-// ⚠️ CONFIGURATION - UPDATE THESE VALUES!
-// ============================================
-const char* WIFI_SSID = "YOUR_WIFI_SSID";      // Your WiFi network name
-const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";  // Your WiFi password
+// WiFi Configuration
+const char* WIFI_SSID = "TOPNET_2FB0";
+const char* WIFI_PASS = "3m3smnb681";
 
-// GitHub repository settings (CHANGE TO YOUR REPO!)
-#define GITHUB_USER "YOUR_GITHUB_USERNAME"     // Your GitHub username
-#define GITHUB_REPO "ota-intrusion-alarm"      // Your repository name
-#define GITHUB_BRANCH "main"                   // Branch name
-
-// ✅ Auto-generated OTA URLs (no need to modify these)
-const char* VERSION_URL =
-  "https://raw.githubusercontent.com/" GITHUB_USER "/" GITHUB_REPO "/" GITHUB_BRANCH "/docs/version.txt";
-const char* FW_URL =
-  "https://raw.githubusercontent.com/" GITHUB_USER "/" GITHUB_REPO "/" GITHUB_BRANCH "/docs/firmware.bin";
+// OTA Update URLs
+const char* VERSION_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/version.txt";
+const char* FW_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/firmware.bin";
 
   
 
