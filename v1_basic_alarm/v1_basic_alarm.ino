@@ -18,7 +18,7 @@
 // =====================================================
 // FIRMWARE VERSION - CHANGE THIS TO TRIGGER OTA
 // =====================================================
-#define FW_VERSION "2.00"
+#define FW_VERSION "1.00"
 
 // =====================================================
 // WIFI CONFIGURATION
@@ -182,50 +182,31 @@ void checkForOTAUpdate() {
   WiFiClientSecure client;
   client.setInsecure();  // Skip certificate validation for simplicity
   
-  // Step 1: Get remote version from GitHub API (NOT cached!)
-  Serial.println("[OTA] Checking remote version via GitHub API...");
+  // Step 1: Get remote version from GitHub Raw (Avoids API rate limits!)
+  Serial.println("[OTA] Checking remote version via GitHub Raw...");
   
   HTTPClient http;
   http.setTimeout(30000);
   
-  // Use GitHub API endpoint - responses are NEVER cached!
-  String apiUrl = "https://api.github.com/repos/Mariemchebbiii/ota-intrusion-alarm/releases/latest";
+  // Use cache busting to ensure we get the latest version
+  String versionUrl = String(VERSION_URL) + "?t=" + String(millis());
   
-  if (!http.begin(client, apiUrl)) {
+  if (!http.begin(client, versionUrl)) {
     Serial.println("[OTA] Failed to begin HTTP connection");
     return;
   }
   
-  // Add User-Agent header (required by GitHub API)
-  http.addHeader("User-Agent", "ESP8266-OTA");
-  
   int httpCode = http.GET();
   
   if (httpCode != HTTP_CODE_OK) {
-    Serial.printf("[OTA] API request failed: %d\n", httpCode);
+    Serial.printf("[OTA] Version check failed: %d\n", httpCode);
     http.end();
     return;
   }
   
-  String response = http.getString();
+  String remoteVersion = http.getString();
   http.end();
   
-  // Extract version from JSON response (tag_name field)
-  // Example: "tag_name":"v3.00" -> we want "3.00"
-  int tagIndex = response.indexOf("\"tag_name\":\"");
-  if (tagIndex == -1) {
-    Serial.println("[OTA] Could not parse version from API");
-    return;
-  }
-  
-  int versionStart = tagIndex + 13; // Skip past "tag_name":"v
-  int versionEnd = response.indexOf("\"", versionStart);
-  String remoteVersion = response.substring(versionStart, versionEnd);
-  
-  // Remove "v" prefix if present
-  if (remoteVersion.startsWith("v")) {
-    remoteVersion = remoteVersion.substring(1);
-  }
   remoteVersion.trim();
   
   Serial.print("[OTA] Remote version: ");
@@ -271,8 +252,9 @@ bool performOTAUpdate() {
   WiFiClientSecure client;
   client.setInsecure();
   
-  // ESP32 doesn't need tiny buffers - use default (plenty of RAM!)
-  // No setBufferSizes() needed on ESP32
+  // Increase buffer size for faster download (16KB)
+  // This significantly speeds up HTTPS downloads on ESP32
+  client.setRxBufferSize(16384);
   
   // Configure HTTPUpdate (ESP32 style)
   httpUpdate.setLedPin(LED_PIN, LOW);
