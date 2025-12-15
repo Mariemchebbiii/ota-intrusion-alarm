@@ -15,7 +15,7 @@
 #include <ESP8266httpUpdate.h>
 #include <WiFiClientSecureBearSSL.h>
 
-#define FW_VERSION "2.03"
+#define FW_VERSION "2.04"
 
 // ============================================
 // WiFi Configuration
@@ -43,7 +43,7 @@ const char* FW_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intru
 bool armed = true;
 bool alarmOn = false;
 unsigned long lastOTACheck = 0;
-const unsigned long OTA_CHECK_INTERVAL = 300000; // 5 minutes
+const unsigned long OTA_CHECK_INTERVAL = 5000; // 5 minutes
 
 // ============================================
 // WiFi Connection with Extended Retry
@@ -100,36 +100,44 @@ void checkForUpdate() {
   Serial.println("========================================");
   Serial.printf("Free heap: %u bytes\n", ESP.getFreeHeap());
 
-  // Create secure client for HTTPS
-  BearSSL::WiFiClientSecure client;
-  client.setInsecure(); // Skip certificate verification
-  client.setTimeout(15000);
-
-  HTTPClient https;
-  https.setTimeout(15000);
-  https.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
-  
   // ===== STEP 1: Get version from server =====
-  Serial.print("1. Lecture version: ");
-  Serial.println(VERSION_URL);
-  
-  if (!https.begin(client, VERSION_URL)) {
-    Serial.println("   ERREUR: Impossible de se connecter au serveur");
-    return;
-  }
+  String serverVersion;
+  {
+    // Use scope to auto-free memory after version check
+    BearSSL::WiFiClientSecure client;
+    client.setInsecure();
+    client.setTimeout(10000);
+    client.setBufferSizes(512, 512); // Minimal buffers for version check
+    
+    HTTPClient https;
+    https.setTimeout(10000);
+    
+    Serial.print("1. Lecture version: ");
+    Serial.println(VERSION_URL);
+    
+    if (!https.begin(client, VERSION_URL)) {
+      Serial.println("   ERREUR: Impossible de se connecter au serveur");
+      return;
+    }
 
-  int httpCode = https.GET();
-  Serial.printf("   HTTP Response: %d\n", httpCode);
-  
-  if (httpCode != HTTP_CODE_OK) {
-    Serial.printf("   ERREUR HTTP: %d - %s\n", httpCode, https.errorToString(httpCode).c_str());
+    int httpCode = https.GET();
+    Serial.printf("   HTTP Response: %d\n", httpCode);
+    
+    if (httpCode != HTTP_CODE_OK) {
+      Serial.printf("   ERREUR HTTP: %d - %s\n", httpCode, https.errorToString(httpCode).c_str());
+      https.end();
+      return;
+    }
+
+    serverVersion = https.getString();
     https.end();
-    return;
+    serverVersion.trim();
+    
+    // Client and https will be destroyed here, freeing memory
   }
-
-  String serverVersion = https.getString();
-  https.end();
-  serverVersion.trim();
+  
+  delay(100); // Allow cleanup
+  Serial.printf("   Free heap apres version check: %u bytes\n", ESP.getFreeHeap());
   
   Serial.printf("   Version locale:  %s\n", FW_VERSION);
   Serial.printf("   Version serveur: %s\n", serverVersion.c_str());
@@ -147,19 +155,27 @@ void checkForUpdate() {
   // ===== STEP 2: Download and install firmware =====
   Serial.println("2. Nouvelle version detectee!");
   Serial.printf("   Mise a jour: %s -> %s\n", FW_VERSION, serverVersion.c_str());
-  Serial.println("3. Telechargement du firmware...");
+  Serial.println("3. Preparation du telechargement...");
+  
+  // Free as much memory as possible
+  serverVersion = ""; // Free version string
+  WiFi.setAutoReconnect(false); // Disable auto-reconnect during update
+  delay(100);
+  
+  Serial.printf("   Free heap avant download: %u bytes\n", ESP.getFreeHeap());
   Serial.print("   URL: ");
   Serial.println(FW_URL);
-  Serial.printf("   Free heap avant: %u bytes\n", ESP.getFreeHeap());
   
-  // Create new secure client for firmware download
+  // Create secure client with optimized buffers
   BearSSL::WiFiClientSecure updateClient;
   updateClient.setInsecure();
-  updateClient.setTimeout(60000); // 60 seconds for large file
+  updateClient.setTimeout(60000);
+  updateClient.setBufferSizes(1024, 512); // Optimized: larger RX for download, small TX
   
   // Configure updater
   ESPhttpUpdate.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
   ESPhttpUpdate.rebootOnUpdate(true);
+  ESPhttpUpdate.closeConnectionsOnUpdate(true);
   
   Serial.println("   Demarrage du telechargement...");
   
