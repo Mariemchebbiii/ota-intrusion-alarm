@@ -27,10 +27,10 @@ const char* WIFI_SSID = "TOPNET_2FB0";
 const char* WIFI_PASS = "3m3smnb68l";
 
 // =====================================================
-// OTA URLs - Using HTTP for MAXIMUM SPEED!
+// OTA URLs - Using HTTPS (GitHub requires it!)
 // =====================================================
-const char* VERSION_URL = "http://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/version.txt";
-const char* FIRMWARE_URL = "http://github.com/Mariemchebbiii/ota-intrusion-alarm/releases/download/v3.00/firmware.bin";
+const char* VERSION_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/version.txt";
+const char* FIRMWARE_URL = "https://github.com/Mariemchebbiii/ota-intrusion-alarm/releases/download/v3.00/firmware.bin";
 
 // =====================================================
 // PIN CONFIGURATION (ESP32 pins)
@@ -178,15 +178,16 @@ void checkForOTAUpdate() {
     connectWiFi();
   }
   
-  // Use HTTP for fast version checking
-  WiFiClient client;
+  // Use HTTPS (GitHub requires it)
+  WiFiClientSecure client;
+  client.setInsecure();  // Skip certificate validation
   
   // Step 1: Get remote version from GitHub Raw (Avoids API rate limits!)
   Serial.println("[OTA] Checking remote version via GitHub Raw...");
   
   HTTPClient http;
   http.setTimeout(30000);
-  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);  // Follow HTTP redirects
+  http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);  // Follow redirects if needed
   
   // Use cache busting to ensure we get the latest version
   String versionUrl = String(VERSION_URL) + "?t=" + String(millis());
@@ -248,8 +249,9 @@ void checkForOTAUpdate() {
 // PERFORM OTA UPDATE - ESP32 EDITION (FAST & RELIABLE!)
 // =====================================================
 bool performOTAUpdate() {
-  // Use HTTP for MAXIMUM DOWNLOAD SPEED (3-5x faster than HTTPS!)
-  WiFiClient client;
+  // Use HTTPS (GitHub requires it)
+  WiFiClientSecure client;
+  client.setInsecure();  // Skip certificate validation for simplicity
   
   // Configure HTTPUpdate (ESP32 style)
   httpUpdate.setLedPin(LED_PIN, LOW);
@@ -282,8 +284,8 @@ bool performOTAUpdate() {
   // Use cache-busting
   String firmwareUrl = String(FIRMWARE_URL) + "?t=" + String(millis());
   
-  Serial.println("[UPDATE] Downloading via HTTP (FAST MODE!)...");
-  Serial.println("[UPDATE] ESP32 at MAXIMUM SPEED!");
+  Serial.println("[UPDATE] Downloading via HTTPS...");
+  Serial.println("[UPDATE] ESP32 Power Mode!");
   Serial.println(firmwareUrl);
   Serial.print("[UPDATE] Free heap: ");
   Serial.println(ESP.getFreeHeap());
