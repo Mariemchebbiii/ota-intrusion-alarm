@@ -77,19 +77,10 @@ jobs:
 
       - name: Create build directories
         run: |
-          mkdir -p build/securite
           mkdir -p build/v1_basic_alarm
           mkdir -p release
 
-      - name: Compile Securite Sketch
-        run: |
-          arduino-cli compile \
-            --fqbn ${{ env.BOARD_FQBN }} \
-            --output-dir build/securite \
-            --warnings default \
-            ${{ env.SKETCH_PATH_MAIN }}
-
-      - name: Compile V1 Basic Alarm Sketch
+      - name: Compile V1 Basic Alarm Sketch (ESP32 ONLY)
         run: |
           arduino-cli compile \
             --fqbn ${{ env.BOARD_FQBN }} \
@@ -101,11 +92,10 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
-          # Copy the compiled binaries
-          cp build/securite/securite.ino.bin release/securite_firmware.bin
+          # Copy the compiled binary
           cp build/v1_basic_alarm/v1_basic_alarm.ino.bin release/v1_basic_alarm_firmware.bin
           
-          # Create the OTA firmware (main one)
+          # Create the OTA firmware
           cp build/v1_basic_alarm/v1_basic_alarm.ino.bin release/firmware.bin
           
           # Create version file from code
