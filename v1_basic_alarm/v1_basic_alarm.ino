@@ -1,12 +1,13 @@
 /*
  * ESP32 Intrusion Alarm with OTA Updates
- * Version: 3.00 - ESP32 EDITION (POWERFUL & FAST!)
+ * Version: 4.00 - ESP32 EDITION (POWERFUL & FAST!)
  *
  * ESP32 ADVANTAGES:
  * - MUCH faster HTTPS downloads (powerful CPU)
  * - More memory (no SSL issues!)
  * - Dual-core processor
  * - Better WiFi stability
+ * - Dynamic OTA URLs (no manual updates needed!)
  */
 
 #include <WiFi.h>
@@ -18,7 +19,7 @@
 // =====================================================
 // FIRMWARE VERSION - CHANGE ONLY THIS ONE LINE!
 // =====================================================
-#define FW_VERSION "1.00"
+#define FW_VERSION "0.00"
 
 // =====================================================
 // WIFI CONFIGURATION
