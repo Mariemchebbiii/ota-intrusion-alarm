@@ -30,7 +30,7 @@ const char* WIFI_PASS = "3m3smnb68l";
 // OTA URLs - AUTO-GENERATED FROM VERSION (Don't edit!)
 // =====================================================
 const char* GITHUB_REPO = "Mariemchebbiii/ota-intrusion-alarm";
-const char* VERSION_URL = "https://raw.githubusercontent.com/" GITHUB_REPO "/main/docs/version.txt";
+const String VERSION_URL = String("https://raw.githubusercontent.com/") + GITHUB_REPO + "/main/docs/version.txt";
 // Firmware URL is built dynamically using FW_VERSION - see performOTAUpdate()
 
 // =====================================================
@@ -196,7 +196,7 @@ void checkForOTAUpdate() {
   http.addHeader("Expires", "0");
   
   // Use cache busting timestamp to ensure we NEVER get cached version
-  String versionUrl = String(VERSION_URL) + "?nocache=" + String(millis());
+  String versionUrl = VERSION_URL + "?nocache=" + String(millis());
   
   if (!http.begin(client, versionUrl)) {
     Serial.println("[OTA] Failed to begin HTTP connection");
