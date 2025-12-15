@@ -4,15 +4,15 @@
 #include <ESP8266httpUpdate.h>
 #include <WiFiClientSecure.h>
 
-#define FW_VERSION "2.01"
+#define FW_VERSION "2.02"
 
 // WiFi Configuration
 const char* WIFI_SSID = "TOPNET_2FB0";
 const char* WIFI_PASS = "3m3smnb68l";
 
-// OTA Update URLs
-const char* VERSION_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/version.txt";
-const char* FW_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/firmware.bin";
+// OTA Update URLs (using HTTP for stability)
+const char* VERSION_URL = "http://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/version.txt";
+const char* FW_URL = "http://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/firmware.bin";
 
   
 
@@ -96,10 +96,8 @@ void checkForUpdate() {
     Serial.printf("Free heap after cleanup: %u bytes\n", ESP.getFreeHeap());
     Serial.println("Demarrage telechargement...");
     
-    // Create fresh secure client for firmware download
-    WiFiClientSecure updateClient;
-    updateClient.setInsecure();
-    updateClient.setTimeout(60000); // 60 second timeout
+    // Use regular WiFiClient (HTTP) - more stable than HTTPS
+    WiFiClient updateClient;
     
     // Configure update settings
     ESPhttpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
