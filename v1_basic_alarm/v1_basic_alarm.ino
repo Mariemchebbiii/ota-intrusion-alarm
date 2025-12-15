@@ -18,7 +18,7 @@
 // =====================================================
 // FIRMWARE VERSION - CHANGE THIS TO TRIGGER OTA
 // =====================================================
-#define FW_VERSION "0.00"
+#define FW_VERSION "3.00"
 
 // =====================================================
 // WIFI CONFIGURATION
@@ -189,8 +189,13 @@ void checkForOTAUpdate() {
   http.setTimeout(30000);
   http.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);  // Follow redirects if needed
   
-  // Use cache busting to ensure we get the latest version
-  String versionUrl = String(VERSION_URL) + "?t=" + String(millis());
+  // ANTI-CACHE HEADERS - Force fresh content!
+  http.addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  http.addHeader("Pragma", "no-cache");
+  http.addHeader("Expires", "0");
+  
+  // Use cache busting timestamp to ensure we NEVER get cached version
+  String versionUrl = String(VERSION_URL) + "?nocache=" + String(millis());
   
   if (!http.begin(client, versionUrl)) {
     Serial.println("[OTA] Failed to begin HTTP connection");
@@ -258,10 +263,13 @@ bool performOTAUpdate() {
   httpUpdate.rebootOnUpdate(true);
   httpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   
+  // ANTI-CACHE: Use unique timestamp + random number for absolute cache bypass
+  String firmwareUrl = String(FIRMWARE_URL) + "?nocache=" + String(millis()) + String(random(10000));
+  
   // Set callbacks for progress (ESP32 style)
   httpUpdate.onStart([]() {
     Serial.println("[UPDATE] Download started...");
-    Serial.println("[UPDATE] ESP32 POWER - This will be FAST!");
+    Serial.println("[UPDATE] ESP32 Power Mode!");
   });
   
   httpUpdate.onProgress([](int current, int total) {
@@ -280,9 +288,6 @@ bool performOTAUpdate() {
   httpUpdate.onError([](int error) {
     Serial.printf("[UPDATE] Error: %d\n", error);
   });
-  
-  // Use cache-busting
-  String firmwareUrl = String(FIRMWARE_URL) + "?t=" + String(millis());
   
   Serial.println("[UPDATE] Downloading via HTTPS...");
   Serial.println("[UPDATE] ESP32 Power Mode!");
