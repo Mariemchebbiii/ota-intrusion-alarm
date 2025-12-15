@@ -188,30 +188,51 @@ void checkForOTAUpdate() {
   // 4096 for receive, 512 for send - this is enough for SSL handshake
   client.setBufferSizes(4096, 512);
   
-  // Step 1: Get remote version
-  Serial.println("[OTA] Checking remote version...");
+  // Step 1: Get remote version from GitHub API (NOT cached!)
+  Serial.println("[OTA] Checking remote version via GitHub API...");
   
   HTTPClient http;
-  http.setTimeout(30000);  // 30 second timeout for version check
+  http.setTimeout(30000);
   
-  String versionUrl = String(VERSION_URL) + "?t=" + String(millis());
+  // Use GitHub API endpoint - responses are NEVER cached!
+  String apiUrl = "https://api.github.com/repos/Mariemchebbiii/ota-intrusion-alarm/releases/latest";
   
-  if (!http.begin(client, versionUrl)) {
+  if (!http.begin(client, apiUrl)) {
     Serial.println("[OTA] Failed to begin HTTP connection");
     return;
   }
   
+  // Add User-Agent header (required by GitHub API)
+  http.addHeader("User-Agent", "ESP8266-OTA");
+  
   int httpCode = http.GET();
   
   if (httpCode != HTTP_CODE_OK) {
-    Serial.printf("[OTA] Version check failed: %d\n", httpCode);
+    Serial.printf("[OTA] API request failed: %d\n", httpCode);
     http.end();
     return;
   }
   
-  String remoteVersion = http.getString();
-  remoteVersion.trim();
+  String response = http.getString();
   http.end();
+  
+  // Extract version from JSON response (tag_name field)
+  // Example: "tag_name":"v3.00" -> we want "3.00"
+  int tagIndex = response.indexOf("\"tag_name\":\"");
+  if (tagIndex == -1) {
+    Serial.println("[OTA] Could not parse version from API");
+    return;
+  }
+  
+  int versionStart = tagIndex + 13; // Skip past "tag_name":"v
+  int versionEnd = response.indexOf("\"", versionStart);
+  String remoteVersion = response.substring(versionStart, versionEnd);
+  
+  // Remove "v" prefix if present
+  if (remoteVersion.startsWith("v")) {
+    remoteVersion = remoteVersion.substring(1);
+  }
+  remoteVersion.trim();
   
   Serial.print("[OTA] Remote version: ");
   Serial.println(remoteVersion);
