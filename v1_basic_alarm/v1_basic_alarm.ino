@@ -15,7 +15,6 @@
 #include <HTTPClient.h>
 #include <HTTPUpdate.h>
 #include <WiFiClientSecure.h>
-#include <base64.h>  // ESP32 built-in base64 decoder
 
 // =====================================================
 // FIRMWARE VERSION - CHANGE ONLY THIS ONE LINE!
@@ -230,13 +229,36 @@ void checkForOTAUpdate() {
   // Remove escaped newlines from JSON
   base64Content.replace("\\n", "");
   
-  // Decode base64 using ESP32 built-in decoder
-  int decodedLen = base64_dec_len(base64Content.c_str(), base64Content.length());
-  char* decoded = new char[decodedLen + 1];
-  base64_decode(decoded, base64Content.c_str(), base64Content.length());
-  decoded[decodedLen] = '\0';
-  String remoteVersion = String(decoded);
-  delete[] decoded;
+  // Decode base64 (proper implementation)
+  String remoteVersion = "";
+  const char* b64 = base64Content.c_str();
+  int len = base64Content.length();
+  const char b64chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  
+  for(int i = 0; i < len; i += 4) {
+    uint32_t block = 0;
+    int padding = 0;
+    
+    for(int j = 0; j < 4 && i+j < len; j++) {
+      char c = b64[i+j];
+      if(c == '=') {
+        padding++;
+        continue;
+      }
+      const char* p = strchr(b64chars, c);
+      if(p) {
+        block = (block << 6) | (p - b64chars);
+      }
+    }
+    
+    // Extract bytes (3 bytes per 4 base64 chars)
+    int numBytes = 3 - padding;
+    for(int j = 0; j < numBytes; j++) {
+      char c = (block >> ((2 - j) * 8)) & 0xFF;
+      remoteVersion += c;
+    }
+  }
+  
   remoteVersion.trim();
   
   Serial.print("[OTA] Remote version: ");
