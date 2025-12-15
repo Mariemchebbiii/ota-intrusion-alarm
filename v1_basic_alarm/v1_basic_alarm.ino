@@ -19,7 +19,7 @@
 // =====================================================
 // FIRMWARE VERSION - CHANGE THIS TO TRIGGER OTA
 // =====================================================
-#define FW_VERSION "3.00"
+#define FW_VERSION "2.05"
 
 // =====================================================
 // WIFI CONFIGURATION
@@ -252,16 +252,14 @@ void checkForOTAUpdate() {
 // PERFORM OTA UPDATE
 // =====================================================
 bool performOTAUpdate() {
-  // Create fresh client for firmware download
-  BearSSL::WiFiClientSecure client;
-  client.setInsecure();
-  
-  // Larger buffer for firmware download
-  client.setBufferSizes(8192, 512);
+  // CRITICAL FIX: Use plain WiFiClient (HTTP) instead of HTTPS
+  // ESP8266 is too weak for HTTPS downloads - SSL kills performance!
+  WiFiClient client;
   
   // Configure ESPhttpUpdate
   ESPhttpUpdate.setLedPin(LED_PIN, LOW);
   ESPhttpUpdate.rebootOnUpdate(true);
+  ESPhttpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   
   // Set callbacks for progress
   ESPhttpUpdate.onStart([]() {
@@ -271,8 +269,8 @@ bool performOTAUpdate() {
   ESPhttpUpdate.onProgress([](int current, int total) {
     static int lastPercent = -1;
     int percent = (current * 100) / total;
-    if (percent != lastPercent && percent % 10 == 0) {
-      Serial.printf("[UPDATE] Progress: %d%%\n", percent);
+    if (percent != lastPercent && percent % 5 == 0) {
+      Serial.printf("[UPDATE] Progress: %d%% (%d/%d bytes)\n", percent, current, total);
       lastPercent = percent;
     }
   });
@@ -285,15 +283,18 @@ bool performOTAUpdate() {
     Serial.printf("[UPDATE] Error: %d - %s\n", error, ESPhttpUpdate.getLastErrorString().c_str());
   });
   
-  // Add cache-busting parameter
-  String firmwareUrl = String(FIRMWARE_URL) + "?t=" + String(millis());
+  // Use HTTP URL (replace https:// with http://)
+  // jsDelivr supports HTTP for faster downloads
+  String firmwareUrl = String(FIRMWARE_URL);
+  firmwareUrl.replace("https://", "http://");
+  firmwareUrl += "?t=" + String(millis());
   
-  Serial.println("[UPDATE] Downloading from jsDelivr CDN...");
+  Serial.println("[UPDATE] Downloading via HTTP (FAST MODE)...");
   Serial.println(firmwareUrl);
   Serial.print("[UPDATE] Free heap before: ");
   Serial.println(ESP.getFreeHeap());
   
-  // Perform update with 3 minute timeout
+  // Perform update using plain HTTP - 10x faster!
   t_httpUpdate_return result = ESPhttpUpdate.update(client, firmwareUrl);
   
   switch (result) {
