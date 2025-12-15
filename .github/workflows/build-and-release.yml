@@ -1,4 +1,4 @@
-name: Build and Release ESP8266 Firmware
+name: Build and Release ESP32 Firmware
 
 on:
   push:
@@ -14,7 +14,7 @@ env:
   ARDUINO_CLI_VERSION: "0.35.3"
   SKETCH_PATH_MAIN: "securite/securite.ino"
   SKETCH_PATH_V1: "v1_basic_alarm/v1_basic_alarm.ino"
-  BOARD_FQBN: "esp8266:esp8266:nodemcuv2"
+  BOARD_FQBN: "esp32:esp32:esp32"
 
 jobs:
   build:
@@ -65,12 +65,12 @@ jobs:
           arduino-cli config init
           arduino-cli config set library.enable_unsafe_install true
 
-      - name: Install ESP8266 Core
+      - name: Install ESP32 Core
         run: |
           arduino-cli core update-index
-          arduino-cli config add board_manager.additional_urls https://arduino.esp8266.com/stable/package_esp8266com_index.json
+          arduino-cli config add board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
           arduino-cli core update-index
-          arduino-cli core install esp8266:esp8266@3.1.2
+          arduino-cli core install esp32:esp32@2.0.14
 
       - name: List Installed Cores (Debug)
         run: arduino-cli core list

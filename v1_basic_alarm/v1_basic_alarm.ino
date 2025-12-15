@@ -1,25 +1,24 @@
 /*
- * ESP8266 Intrusion Alarm with OTA Updates
- * Version: 3.00 - ULTIMATE BULLETPROOF EDITION
+ * ESP32 Intrusion Alarm with OTA Updates
+ * Version: 3.00 - ESP32 EDITION (POWERFUL & FAST!)
  *
- * CRITICAL FIXES:
- * - Uses jsDelivr CDN (faster than raw.githubusercontent.com)
- * - 3-minute timeout for slow connections
- * - Optimized SSL buffers
- * - Progress indicator
- * - Multiple retry with delay
+ * ESP32 ADVANTAGES:
+ * - MUCH faster HTTPS downloads (powerful CPU)
+ * - More memory (no SSL issues!)
+ * - Dual-core processor
+ * - Better WiFi stability
  */
 
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
 #include <ArduinoOTA.h>
-#include <ESP8266HTTPClient.h>
-#include <ESP8266httpUpdate.h>
-#include <WiFiClientSecureBearSSL.h>
+#include <HTTPClient.h>
+#include <HTTPUpdate.h>
+#include <WiFiClientSecure.h>
 
 // =====================================================
 // FIRMWARE VERSION - CHANGE THIS TO TRIGGER OTA
 // =====================================================
-#define FW_VERSION "1.00"
+#define FW_VERSION "3.00"
 
 // =====================================================
 // WIFI CONFIGURATION
@@ -28,17 +27,17 @@ const char* WIFI_SSID = "TOPNET_2FB0";
 const char* WIFI_PASS = "3m3smnb68l";
 
 // =====================================================
-// OTA URLs - Using GitHub raw (simpler SSL for ESP8266)
+// OTA URLs - Using GitHub API (no caching!)
 // =====================================================
 const char* VERSION_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/version.txt";
 const char* FIRMWARE_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/firmware.bin";
 
 // =====================================================
-// PIN CONFIGURATION
+// PIN CONFIGURATION (ESP32 pins)
 // =====================================================
-const int PIR_PIN = D5;
-const int BUZZER_PIN = D1;
-const int LED_PIN = LED_BUILTIN;
+const int PIR_PIN = 18;      // GPIO18 for PIR sensor
+const int BUZZER_PIN = 19;   // GPIO19 for buzzer
+const int LED_PIN = 2;       // Built-in LED on GPIO2
 
 // =====================================================
 // TIMING CONFIGURATION
@@ -57,8 +56,8 @@ void setup() {
   
   Serial.println("\n\n");
   Serial.println("========================================");
-  Serial.println("   ESP8266 ALARM v" FW_VERSION);
-  Serial.println("   ULTIMATE BULLETPROOF EDITION");
+  Serial.println("   ESP32 ALARM v" FW_VERSION);
+  Serial.println("   POWERFUL DUAL-CORE EDITION");
   Serial.println("========================================");
   
   // Initialize pins
@@ -179,14 +178,9 @@ void checkForOTAUpdate() {
     connectWiFi();
   }
   
-  // Create secure client with INSECURE mode (skip certificate validation)
-  // This is required because ESP8266 has limited memory for full SSL
-  BearSSL::WiFiClientSecure client;
-  client.setInsecure();
-  
-  // Set optimal buffer sizes
-  // 4096 for receive, 512 for send - this is enough for SSL handshake
-  client.setBufferSizes(4096, 512);
+  // Create secure client - ESP32 has tons of memory, no SSL problems!
+  WiFiClientSecure client;
+  client.setInsecure();  // Skip certificate validation for simplicity
   
   // Step 1: Get remote version from GitHub API (NOT cached!)
   Serial.println("[OTA] Checking remote version via GitHub API...");
@@ -270,76 +264,59 @@ void checkForOTAUpdate() {
 }
 
 // =====================================================
-// PERFORM OTA UPDATE
+// PERFORM OTA UPDATE - ESP32 EDITION (FAST & RELIABLE!)
 // =====================================================
 bool performOTAUpdate() {
-  // NUCLEAR OPTION: Maximum stability settings
-  BearSSL::WiFiClientSecure client;
+  // ESP32 has plenty of power - HTTPS is EASY!
+  WiFiClientSecure client;
   client.setInsecure();
   
-  // PROVEN STABLE: 2048 RX buffer is the sweet spot
-  client.setBufferSizes(2048, 512);
+  // ESP32 doesn't need tiny buffers - use default (plenty of RAM!)
+  // No setBufferSizes() needed on ESP32
   
-  // Disable SSL session cache (saves heap during transfer)
-  client.setSession(nullptr);
+  // Configure HTTPUpdate (ESP32 style)
+  httpUpdate.setLedPin(LED_PIN, LOW);
+  httpUpdate.rebootOnUpdate(true);
+  httpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   
-  // CRITICAL: Set TCP timeout to 15 MINUTES 
-  client.setTimeout(900000);
-  
-  // TCP optimizations
-  client.setNoDelay(true);
-  
-  // Boost WiFi power to maximum
-  WiFi.setOutputPower(20.5);
-  
-  // Configure ESPhttpUpdate with MAXIMUM tolerance
-  ESPhttpUpdate.setLedPin(LED_PIN, LOW);
-  ESPhttpUpdate.rebootOnUpdate(true);
-  ESPhttpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-  
-  // Disable connection close to keep TCP alive
-  ESPhttpUpdate.closeConnectionsOnUpdate(false);
-  
-  // Set callbacks for progress
-  ESPhttpUpdate.onStart([]() {
+  // Set callbacks for progress (ESP32 style)
+  httpUpdate.onStart([]() {
     Serial.println("[UPDATE] Download started...");
-    Serial.println("[UPDATE] BE PATIENT - This takes 3-5 minutes!");
+    Serial.println("[UPDATE] ESP32 POWER - This will be FAST!");
   });
   
-  ESPhttpUpdate.onProgress([](int current, int total) {
+  httpUpdate.onProgress([](int current, int total) {
     static int lastPercent = -1;
     int percent = (current * 100) / total;
     if (percent != lastPercent && percent % 5 == 0) {
-      Serial.printf("[UPDATE] %d%% (%d/%d) - Keep waiting!\n", percent, current, total);
+      Serial.printf("[UPDATE] %d%% (%d/%d bytes)\n", percent, current, total);
       lastPercent = percent;
     }
   });
   
-  ESPhttpUpdate.onEnd([]() {
+  httpUpdate.onEnd([]() {
     Serial.println("[UPDATE] Download complete, installing...");
   });
   
-  ESPhttpUpdate.onError([](int error) {
-    Serial.printf("[UPDATE] Error: %d - %s\n", error, ESPhttpUpdate.getLastErrorString().c_str());
+  httpUpdate.onError([](int error) {
+    Serial.printf("[UPDATE] Error: %d\n", error);
   });
   
   // Use HTTPS with cache-busting
   String firmwareUrl = String(FIRMWARE_URL) + "?t=" + String(millis());
   
   Serial.println("[UPDATE] Downloading via HTTPS...");
-  Serial.println("[UPDATE] WARNING: This is SLOW on ESP8266!");
+  Serial.println("[UPDATE] ESP32 handles SSL like a BOSS!");
   Serial.println(firmwareUrl);
   Serial.print("[UPDATE] Free heap: ");
   Serial.println(ESP.getFreeHeap());
   
-  // Perform update with 10-minute timeout tolerance
-  t_httpUpdate_return result = ESPhttpUpdate.update(client, firmwareUrl);
+  // Perform update - ESP32 will do this FAST!
+  t_httpUpdate_return result = httpUpdate.update(client, firmwareUrl);
   
   switch (result) {
     case HTTP_UPDATE_FAILED:
-      Serial.printf("[UPDATE] FAILED: Error(%d): %s\n", 
-                    ESPhttpUpdate.getLastError(),
-                    ESPhttpUpdate.getLastErrorString().c_str());
+      Serial.printf("[UPDATE] FAILED: Error(%d)\n", httpUpdate.getLastError());
       return true;  // Return true to indicate we should retry
       
     case HTTP_UPDATE_NO_UPDATES:
