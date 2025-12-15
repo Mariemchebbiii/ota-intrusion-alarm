@@ -46,6 +46,9 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
+          # Fetch all tags from remote to ensure we have latest
+          git fetch --tags --force
+          
           # Check if this tag already exists
           if git rev-parse "v$VERSION" >/dev/null 2>&1; then
             echo "Tag v$VERSION already exists"
