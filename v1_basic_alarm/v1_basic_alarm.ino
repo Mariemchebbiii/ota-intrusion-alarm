@@ -27,10 +27,10 @@ const char* WIFI_SSID = "TOPNET_2FB0";
 const char* WIFI_PASS = "3m3smnb68l";
 
 // =====================================================
-// OTA URLs - Using GitHub API (no caching!)
+// OTA URLs - Using HTTP for MAXIMUM SPEED!
 // =====================================================
-const char* VERSION_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/version.txt";
-const char* FIRMWARE_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/firmware.bin";
+const char* VERSION_URL = "http://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/version.txt";
+const char* FIRMWARE_URL = "http://github.com/Mariemchebbiii/ota-intrusion-alarm/releases/download/v3.00/firmware.bin";
 
 // =====================================================
 // PIN CONFIGURATION (ESP32 pins)
@@ -178,9 +178,8 @@ void checkForOTAUpdate() {
     connectWiFi();
   }
   
-  // Create secure client - ESP32 has tons of memory, no SSL problems!
-  WiFiClientSecure client;
-  client.setInsecure();  // Skip certificate validation for simplicity
+  // Use HTTP for fast version checking
+  WiFiClient client;
   
   // Step 1: Get remote version from GitHub Raw (Avoids API rate limits!)
   Serial.println("[OTA] Checking remote version via GitHub Raw...");
@@ -248,13 +247,8 @@ void checkForOTAUpdate() {
 // PERFORM OTA UPDATE - ESP32 EDITION (FAST & RELIABLE!)
 // =====================================================
 bool performOTAUpdate() {
-  // ESP32 has plenty of power - HTTPS is EASY!
-  WiFiClientSecure client;
-  client.setInsecure();
-  
-  // Increase buffer size for faster download (16KB)
-  // This significantly speeds up HTTPS downloads on ESP32
-  client.setRxBufferSize(16384);
+  // Use HTTP for MAXIMUM DOWNLOAD SPEED (3-5x faster than HTTPS!)
+  WiFiClient client;
   
   // Configure HTTPUpdate (ESP32 style)
   httpUpdate.setLedPin(LED_PIN, LOW);
@@ -284,11 +278,11 @@ bool performOTAUpdate() {
     Serial.printf("[UPDATE] Error: %d\n", error);
   });
   
-  // Use HTTPS with cache-busting
+  // Use cache-busting
   String firmwareUrl = String(FIRMWARE_URL) + "?t=" + String(millis());
   
-  Serial.println("[UPDATE] Downloading via HTTPS...");
-  Serial.println("[UPDATE] ESP32 handles SSL like a BOSS!");
+  Serial.println("[UPDATE] Downloading via HTTP (FAST MODE!)...");
+  Serial.println("[UPDATE] ESP32 at MAXIMUM SPEED!");
   Serial.println(firmwareUrl);
   Serial.print("[UPDATE] Free heap: ");
   Serial.println(ESP.getFreeHeap());
