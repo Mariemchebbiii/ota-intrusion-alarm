@@ -231,7 +231,12 @@ void checkForOTAUpdate() {
   base64Content.replace("\\n", "");
   
   // Decode base64 using ESP32 built-in decoder
-  String remoteVersion = base64::decode(base64Content);
+  int decodedLen = base64_dec_len(base64Content.c_str(), base64Content.length());
+  char* decoded = new char[decodedLen + 1];
+  base64_decode(decoded, base64Content.c_str(), base64Content.length());
+  decoded[decodedLen] = '\0';
+  String remoteVersion = String(decoded);
+  delete[] decoded;
   remoteVersion.trim();
   
   Serial.print("[OTA] Remote version: ");
