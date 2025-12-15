@@ -15,7 +15,7 @@
 #include <ESP8266httpUpdate.h>
 #include <WiFiClientSecureBearSSL.h>
 
-#define FW_VERSION "2.06"
+#define FW_VERSION "2.07"
 
 // ============================================
 // WiFi Configuration
@@ -114,16 +114,21 @@ void checkForUpdate() {
     https.setTimeout(15000);
     https.setFollowRedirects(HTTPC_STRICT_FOLLOW_REDIRECTS);
     
+    // CACHE BUSTING: Add timestamp to URL to bypass GitHub CDN cache
+    String versionUrlWithTimestamp = String(VERSION_URL) + "?t=" + String(millis());
+    
     Serial.print("1. Lecture version: ");
     Serial.println(VERSION_URL);
     
-    if (!https.begin(client, VERSION_URL)) {
+    if (!https.begin(client, versionUrlWithTimestamp)) {
       Serial.println("   ERREUR: Impossible de se connecter au serveur");
       return;
     }
 
-    // Add headers for GitHub
+    // Add headers to bypass cache
     https.addHeader("User-Agent", "ESP8266-OTA");
+    https.addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    https.addHeader("Pragma", "no-cache");
     https.addHeader("Accept", "*/*");
     
     int httpCode = https.GET();
@@ -169,6 +174,9 @@ void checkForUpdate() {
   delay(100);
   
   Serial.printf("   Free heap avant download: %u bytes\n", ESP.getFreeHeap());
+  
+  // CACHE BUSTING: Add timestamp to firmware URL too
+  String firmwareUrlWithTimestamp = String(FW_URL) + "?t=" + String(millis());
   Serial.print("   URL: ");
   Serial.println(FW_URL);
   
@@ -198,7 +206,7 @@ void checkForUpdate() {
       updateClient.stop();
     }
     
-    ret = ESPhttpUpdate.update(updateClient, FW_URL);
+    ret = ESPhttpUpdate.update(updateClient, firmwareUrlWithTimestamp);
     
     if (ret != HTTP_UPDATE_FAILED || ESPhttpUpdate.getLastError() != -6) {
       break; // Success or non-timeout error
