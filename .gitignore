@@ -1,0 +1,55 @@
+# Dependency directories
+node_modules/
+
+# Build outputs (local builds)
+build/
+*.bin
+*.elf
+*.map
+*.hex
+
+# But keep release binaries in docs
+!docs/firmware.bin
+
+# Arduino IDE generated files
+*.ino.cpp
+*.ino.d
+*.ino.eep
+*.ino.with_bootloader.bin
+preproc/
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# Backup files
+*.bak
+*.backup
+
+# Local configuration (if any)
+secrets.h
+config_local.h
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+eggs/

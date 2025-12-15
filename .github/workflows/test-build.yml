@@ -1,0 +1,32 @@
+name: Simple Build Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+      
+      - name: Install ESP8266 Board
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://arduino.esp8266.com/stable/package_esp8266com_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp8266:esp8266@3.1.2
+      
+      - name: Compile securite
+        run: |
+          arduino-cli compile --fqbn esp8266:esp8266:nodemcuv2 securite/securite.ino
+      
+      - name: Compile v1_basic_alarm
+        run: |
+          arduino-cli compile --fqbn esp8266:esp8266:nodemcuv2 v1_basic_alarm/v1_basic_alarm.ino
+      
+      - name: Success
+        run: echo "✅ Both sketches compiled successfully!"
