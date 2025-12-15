@@ -119,8 +119,6 @@ jobs:
 
       - name: Update OTA Files in docs/
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           
@@ -128,9 +126,10 @@ jobs:
           cp release/firmware.bin docs/firmware.bin
           cp release/version.txt docs/version.txt
           
-          # Configure git
+          # Configure git with token authentication
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
           
           # Check if there are changes
           git add docs/firmware.bin docs/version.txt
@@ -138,8 +137,8 @@ jobs:
           if git diff --staged --quiet; then
             echo "✅ No changes to docs folder"
           else
-            git commit -m "🤖 Auto-update OTA firmware v${VERSION}"
-            git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git HEAD:main
+            git commit -m "🤖 Auto-update OTA firmware v${VERSION} [skip ci]"
+            git push origin HEAD:main
             echo "✅ Updated docs/firmware.bin and docs/version.txt"
           fi
 
