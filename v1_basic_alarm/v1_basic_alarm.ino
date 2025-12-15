@@ -2,13 +2,13 @@
 #include <ArduinoOTA.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266httpUpdate.h>
-#include <WiFiClientSecureBearSSL.h>
+#include <WiFiClientSecure.h>
 
-#define FW_VERSION "2.00"
+#define FW_VERSION "2.01"
 
 // WiFi Configuration
 const char* WIFI_SSID = "TOPNET_2FB0";
-const char* WIFI_PASS = "3m3smnb681";
+const char* WIFI_PASS = "3m3smnb68l";
 
 // OTA Update URLs
 const char* VERSION_URL = "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/version.txt";
@@ -25,34 +25,6 @@ bool armed = true;
 bool alarmOn = false;
 unsigned long lastOTACheck = 0;
 const unsigned long OTA_CHECK_INTERVAL = 300000; // Check for updates every 5 minutes
-
-// Test if firmware URL is accessible
-bool testFirmwareURL() {
-  std::unique_ptr<BearSSL::WiFiClientSecure> testClient(new BearSSL::WiFiClientSecure);
-  testClient->setInsecure();
-  testClient->setTimeout(5000);
-  
-  HTTPClient testHttp;
-  testHttp.setTimeout(5000);
-  
-  if (!testHttp.begin(*testClient, FW_URL)) {
-    Serial.println("Cannot create HTTP connection to firmware URL");
-    return false;
-  }
-  
-  // Use HEAD request to check if file exists (faster)
-  int code = testHttp.sendRequest("HEAD");
-  Serial.printf("Firmware URL test response: %d\n", code);
-  
-  if (code == 200) {
-    Serial.printf("Firmware file size: %d bytes\n", testHttp.getSize());
-  } else {
-    Serial.printf("Firmware URL not accessible! HTTP code: %d\n", code);
-  }
-  
-  testHttp.end();
-  return (code == 200);
-}
 
 void checkForUpdate() {
   if (WiFi.status() != WL_CONNECTED) {
@@ -113,40 +85,27 @@ void checkForUpdate() {
   // Compare as floats (more reliable for version numbers)
   if (serverVer > localVer) {
     Serial.println("Nouvelle version detectee -> telechargement firmware...");
-
-    // Test firmware URL accessibility first
-    Serial.println("\nTest: Verification acces URL firmware...");
-    if (!testFirmwareURL()) {
-      Serial.println("ERREUR: Impossible d'acceder au fichier firmware !");
-      Serial.println("Verifications suggérees:");
-      Serial.print("1. L'URL existe: ");
-      Serial.println(FW_URL);
-      Serial.println("2. Le fichier firmware.bin a été uploadé sur GitHub");
-      Serial.println("3. Votre connexion WiFi est stable");
-      Serial.println("4. GitHub n'est pas bloqué par votre reseau");
-      return;
-    }
-    
-    Serial.println("URL firmware OK, demarrage mise à jour...");
-    delay(1000);
-
-    // Create new secure client for firmware download
-    std::unique_ptr<BearSSL::WiFiClientSecure> client2(new BearSSL::WiFiClientSecure);
-    client2->setInsecure();
-    client2->setTimeout(30000); // 30 second timeout for file download
-    client2->setBufferSizes(512, 512); // Smaller buffers for stability
-
-    ESPhttpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
-    
-    // Add User-Agent to avoid being blocked
-    ESPhttpUpdate.setAuthorization(""); // Clear auth if any
-
     Serial.print("URL firmware: ");
     Serial.println(FW_URL);
+    Serial.printf("Free heap: %u bytes\n", ESP.getFreeHeap());
     
-    Serial.printf("Free heap before update: %u bytes\n", ESP.getFreeHeap());
-
-    t_httpUpdate_return ret = ESPhttpUpdate.update(*client2, FW_URL);
+    // Free memory from version check
+    client.reset();
+    delay(100);
+    
+    Serial.printf("Free heap after cleanup: %u bytes\n", ESP.getFreeHeap());
+    Serial.println("Demarrage telechargement...");
+    
+    // Create fresh secure client for firmware download
+    WiFiClientSecure updateClient;
+    updateClient.setInsecure();
+    updateClient.setTimeout(60000); // 60 second timeout
+    
+    // Configure update settings
+    ESPhttpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
+    ESPhttpUpdate.rebootOnUpdate(true);
+    
+    t_httpUpdate_return ret = ESPhttpUpdate.update(updateClient, FW_URL);
 
     if (ret == HTTP_UPDATE_OK) {
       Serial.println("Mise a jour reussie ! (reboot imminent)");
