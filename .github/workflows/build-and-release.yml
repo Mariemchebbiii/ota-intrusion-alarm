@@ -3,16 +3,12 @@ name: Build and Release ESP8266 Firmware
 on:
   push:
     branches: [main, master]
-    tags:
-      - 'v*'
+    paths:
+      - '**.ino'
+      - '.github/workflows/**'
   pull_request:
     branches: [main, master]
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version number (e.g., 2.01)'
-        required: false
-        default: ''
 
 env:
   ARDUINO_CLI_VERSION: "0.35.3"
@@ -26,11 +22,38 @@ jobs:
     permissions:
       contents: write
     
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_changed: ${{ steps.check_version.outputs.changed }}
+    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Version from Code
+        id: version
+        run: |
+          # Extract version from v1_basic_alarm.ino (the main OTA sketch)
+          VERSION=$(grep -oP '#define FW_VERSION "\K[^"]+' v1_basic_alarm/v1_basic_alarm.ino || echo "1.00")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Extracted version from code: $VERSION"
+
+      - name: Check if Version Changed
+        id: check_version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
+          # Check if this tag already exists
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "Tag v$VERSION already exists"
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "Tag v$VERSION does not exist - will create new release"
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Setup Arduino CLI
         uses: arduino/setup-arduino-cli@v2
@@ -52,14 +75,6 @@ jobs:
       - name: List Installed Cores (Debug)
         run: arduino-cli core list
 
-      - name: Install Required Libraries
-        run: |
-          arduino-cli lib install "ArduinoOTA"
-          arduino-cli lib install "ESP8266WiFi"
-          arduino-cli lib install "ESP8266HTTPClient"
-          arduino-cli lib install "ESP8266httpUpdate"
-        continue-on-error: true
-
       - name: Create build directories
         run: |
           mkdir -p build/securite
@@ -72,7 +87,6 @@ jobs:
             --fqbn ${{ env.BOARD_FQBN }} \
             --output-dir build/securite \
             --warnings default \
-            --verbose \
             ${{ env.SKETCH_PATH_MAIN }}
 
       - name: Compile V1 Basic Alarm Sketch
@@ -81,11 +95,12 @@ jobs:
             --fqbn ${{ env.BOARD_FQBN }} \
             --output-dir build/v1_basic_alarm \
             --warnings default \
-            --verbose \
             ${{ env.SKETCH_PATH_V1 }}
 
       - name: Prepare Release Files
         run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
           # Copy the compiled binaries
           cp build/securite/securite.ino.bin release/securite_firmware.bin
           cp build/v1_basic_alarm/v1_basic_alarm.ino.bin release/v1_basic_alarm_firmware.bin
@@ -93,92 +108,103 @@ jobs:
           # Create the OTA firmware (main one)
           cp build/v1_basic_alarm/v1_basic_alarm.ino.bin release/firmware.bin
           
-          # List all files
+          # Create version file from code
+          echo "$VERSION" > release/version.txt
+          
           echo "=== Release files ==="
           ls -la release/
-
-      - name: Get Version Number
-        id: version
-        run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            VERSION="${{ github.event.inputs.version }}"
-          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VERSION="${{ github.ref_name }}"
-            VERSION="${VERSION#v}"
-          else
-            # Extract version from v1_basic_alarm.ino
-            VERSION=$(grep -oP '#define FW_VERSION "\K[^"]+' v1_basic_alarm/v1_basic_alarm.ino || echo "1.00")
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo ""
           echo "Version: $VERSION"
-
-      - name: Update version.txt for OTA
-        run: |
-          echo "${{ steps.version.outputs.version }}" > release/version.txt
-          echo "Version file content:"
           cat release/version.txt
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-binaries
-          path: |
-            release/
-          retention-days: 30
+          name: firmware-v${{ steps.version.outputs.version }}
+          path: release/
+          retention-days: 90
 
-      - name: Upload OTA Files to docs folder
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/'))
+      - name: Update OTA Files in docs/
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
         run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          
           # Copy firmware.bin and version.txt to docs folder for OTA
           cp release/firmware.bin docs/firmware.bin
           cp release/version.txt docs/version.txt
           
           # Configure git
-          git config user.name "GitHub Actions Bot"
-          git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           
           # Check if there are changes
-          if git diff --quiet docs/; then
-            echo "No changes to docs folder"
+          git add docs/firmware.bin docs/version.txt
+          
+          if git diff --staged --quiet; then
+            echo "✅ No changes to docs folder"
           else
-            git add docs/firmware.bin docs/version.txt
-            git commit -m "🤖 Auto-update OTA firmware v${{ steps.version.outputs.version }}"
+            git commit -m "🤖 Auto-update OTA firmware v${VERSION}"
             git push
+            echo "✅ Updated docs/firmware.bin and docs/version.txt"
           fi
-        continue-on-error: true
 
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Create Git Tag and Release
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && steps.check_version.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG_NAME="v${VERSION}"
+          
+          echo "📌 Creating tag: $TAG_NAME"
+          
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create and push tag
+          git tag -a "$TAG_NAME" -m "Release $TAG_NAME - Auto-generated from FW_VERSION in code"
+          git push origin "$TAG_NAME"
+          
+          echo "✅ Tag $TAG_NAME created and pushed"
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && steps.check_version.outputs.changed == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          name: "ESP8266 Alarm Firmware v${{ steps.version.outputs.version }}"
+          tag_name: "v${{ steps.version.outputs.version }}"
+          name: "🚀 ESP8266 Alarm v${{ steps.version.outputs.version }}"
           body: |
-            ## 🚀 ESP8266 Alarm Firmware Release v${{ steps.version.outputs.version }}
+            ## 🚀 ESP8266 Alarm Firmware v${{ steps.version.outputs.version }}
+            
+            **Auto-generated release from `FW_VERSION` in code**
             
             ### 📦 Included Files:
-            - `securite_firmware.bin` - Main security sketch
-            - `v1_basic_alarm_firmware.bin` - V1 Basic Alarm with OTA support
-            - `firmware.bin` - OTA-ready firmware (same as v1_basic_alarm)
-            - `version.txt` - Version file for OTA updates
+            | File | Description |
+            |------|-------------|
+            | `firmware.bin` | OTA-ready firmware (main) |
+            | `v1_basic_alarm_firmware.bin` | V1 alarm with OTA support |
+            | `securite_firmware.bin` | Basic security sketch |
+            | `version.txt` | Version file for OTA |
             
-            ### 📡 OTA Update URLs:
-            After this release, your ESP8266 devices will automatically detect and download the new firmware from:
-            - Version: `https://raw.githubusercontent.com/${{ github.repository }}/main/docs/version.txt`
-            - Firmware: `https://raw.githubusercontent.com/${{ github.repository }}/main/docs/firmware.bin`
-            
-            ### 🔧 Manual Flash Instructions:
-            1. Download `v1_basic_alarm_firmware.bin`
-            2. Use **esptool** or **Arduino IDE** to flash
-            3. Board: **NodeMCU 1.0 (ESP-12E Module)**
-            
-            ### ⚡ Flash command (esptool):
-            ```bash
-            esptool.py --port COM3 --baud 115200 write_flash 0x0 v1_basic_alarm_firmware.bin
+            ### 📡 OTA Update:
+            Your ESP8266 devices will automatically download this update from:
             ```
+            Version: https://raw.githubusercontent.com/${{ github.repository }}/main/docs/version.txt
+            Firmware: https://raw.githubusercontent.com/${{ github.repository }}/main/docs/firmware.bin
+            ```
+            
+            ### ⚡ Manual Flash (esptool):
+            ```bash
+            esptool.py --port COM3 --baud 115200 write_flash 0x0 firmware.bin
+            ```
+            
+            ---
+            📝 *To create a new release, simply change `#define FW_VERSION "X.XX"` in your code and push!*
           files: |
-            release/securite_firmware.bin
-            release/v1_basic_alarm_firmware.bin
             release/firmware.bin
+            release/v1_basic_alarm_firmware.bin
+            release/securite_firmware.bin
             release/version.txt
           draft: false
           prerelease: false
@@ -186,67 +212,59 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create Latest Release (on push to main)
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "latest"
-          name: "Latest Build - v${{ steps.version.outputs.version }}"
-          body: |
-            ## 🔄 Latest Automatic Build
-            
-            **Version:** ${{ steps.version.outputs.version }}
-            **Built from:** ${{ github.sha }}
-            **Date:** ${{ github.event.head_commit.timestamp }}
-            
-            ### 📦 Files:
-            - `securite_firmware.bin` - Main security sketch
-            - `v1_basic_alarm_firmware.bin` - V1 Basic Alarm with OTA
-            - `firmware.bin` - OTA firmware
-            - `version.txt` - Version for OTA check
-            
-            ---
-            ⚠️ This is an automated build from the latest commit. For stable releases, use tagged versions.
-          files: |
-            release/securite_firmware.bin
-            release/v1_basic_alarm_firmware.bin
-            release/firmware.bin
-            release/version.txt
-          draft: false
-          prerelease: true
-          make_latest: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build Summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          CHANGED="${{ steps.check_version.outputs.changed }}"
+          
+          echo "## 📊 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`$VERSION\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| New Release | $CHANGED |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$CHANGED" = "true" ]; then
+            echo "✅ **New release v$VERSION created!**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ Version unchanged - no new release created" >> $GITHUB_STEP_SUMMARY
+          fi
 
-  # Optional: Verify the firmware was uploaded correctly
   verify:
     needs: build
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     
     steps:
-      - name: Wait for GitHub Pages/Raw to update
-        run: sleep 30
+      - name: Wait for GitHub to propagate changes
+        run: sleep 45
 
-      - name: Verify OTA files are accessible
+      - name: Verify OTA Files
         run: |
+          echo "🔍 Verifying OTA files..."
+          echo ""
+          
+          # Check version.txt
           echo "Checking version.txt..."
-          VERSION_RESPONSE=$(curl -sL -w "%{http_code}" "https://raw.githubusercontent.com/${{ github.repository }}/main/docs/version.txt" -o /tmp/version.txt)
-          echo "HTTP Response: $VERSION_RESPONSE"
-          if [ "$VERSION_RESPONSE" = "200" ]; then
-            echo "✅ version.txt is accessible"
-            echo "Content: $(cat /tmp/version.txt)"
+          HTTP_CODE=$(curl -sL -w "%{http_code}" "https://raw.githubusercontent.com/${{ github.repository }}/main/docs/version.txt" -o /tmp/version.txt)
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ version.txt accessible (HTTP $HTTP_CODE)"
+            echo "   Content: $(cat /tmp/version.txt)"
           else
-            echo "⚠️ version.txt might not be ready yet (this is normal for first run)"
+            echo "⚠️ version.txt returned HTTP $HTTP_CODE"
           fi
           
           echo ""
+          
+          # Check firmware.bin
           echo "Checking firmware.bin..."
-          FW_RESPONSE=$(curl -sL -w "%{http_code}" -o /dev/null "https://raw.githubusercontent.com/${{ github.repository }}/main/docs/firmware.bin")
-          echo "HTTP Response: $FW_RESPONSE"
-          if [ "$FW_RESPONSE" = "200" ]; then
-            echo "✅ firmware.bin is accessible"
+          HTTP_CODE=$(curl -sL -w "%{http_code}" -o /dev/null "https://raw.githubusercontent.com/${{ github.repository }}/main/docs/firmware.bin")
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ firmware.bin accessible (HTTP $HTTP_CODE)"
           else
-            echo "⚠️ firmware.bin might not be ready yet (this is normal for first run)"
+            echo "⚠️ firmware.bin returned HTTP $HTTP_CODE"
           fi
-        continue-on-error: true

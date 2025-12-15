@@ -1,8 +1,13 @@
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
 
-const char* WIFI_SSID = "iPhone de Mariem";
-const char* WIFI_PASS = "987654321";
+#define FW_VERSION "2.00"
+
+// ============================================
+// ⚠️ CONFIGURATION - UPDATE THESE VALUES!
+// ============================================
+const char* WIFI_SSID = "YOUR_WIFI_SSID";      // Your WiFi network name
+const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";  // Your WiFi password
 
 #define PIR_PIN D5
 #define LED_PIN D6

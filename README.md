@@ -1,105 +1,146 @@
-# 🚀 ESP8266 Alarm System - GitHub Actions CI/CD
+# 🚨 ESP8266 Intrusion Alarm with OTA Updates
 
-## ✅ Automated Build & Release System
-
-This repository uses GitHub Actions for **automatic compilation and release** of ESP8266 firmware.
+An ESP8266-based intrusion detection system with **automatic Over-The-Air (OTA) firmware updates** via GitHub Actions.
 
 ---
 
-## 📋 How It Works
+## ✨ Features
 
-### Automatic Triggers:
-| Event | Action |
-|-------|--------|
-| Push to `main`/`master` | Builds firmware + Creates "latest" pre-release |
-| Push a tag `v*` (e.g., `v2.01`) | Builds firmware + Creates official release |
-| Pull Request | Builds firmware (verification only) |
-| Manual trigger | Builds with custom version number |
+- 🔔 PIR motion detection with buzzer alarm
+- 📡 WiFi connectivity
+- 🔄 **Automatic OTA updates** from GitHub
+- 🏗️ **GitHub Actions CI/CD** - auto-builds and releases
+- 🏷️ **Version-based releases** - version is extracted from code!
 
 ---
 
-## 🎯 Creating a New Release
+## 🚀 Quick Start
 
-### Method 1: Tag-based Release (Recommended)
-```bash
-# Update version in code first (v1_basic_alarm.ino)
-# Change: #define FW_VERSION "2.01"
+### 1. Configure Your Settings
 
-git add .
-git commit -m "Bump version to 2.01"
-git tag v2.01
-git push origin main --tags
+Edit `v1_basic_alarm/v1_basic_alarm.ino`:
+
+```cpp
+// ⚠️ CHANGE THESE VALUES!
+const char* WIFI_SSID = "YOUR_WIFI_SSID";
+const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
+
+#define GITHUB_USER "YOUR_GITHUB_USERNAME"
+#define GITHUB_REPO "ota-intrusion-alarm"
 ```
 
-### Method 2: Manual Workflow Dispatch
-1. Go to **Actions** tab on GitHub
-2. Select **"Build and Release ESP8266 Firmware"**
-3. Click **"Run workflow"**
-4. Enter version number (optional)
-5. Click **"Run workflow"**
+### 2. Push to GitHub
+
+```bash
+git add .
+git commit -m "Configure for my setup"
+git push origin main
+```
+
+### 3. Done! 🎉
+
+GitHub Actions will automatically:
+- ✅ Compile both sketches
+- ✅ Create a release with tag matching `FW_VERSION`
+- ✅ Upload `firmware.bin` for OTA updates
 
 ---
 
-## 📦 Release Contents
+## 📦 How Releases Work
 
-Each release includes:
+The workflow **automatically extracts the version** from your code:
 
-| File | Description |
-|------|-------------|
-| `securite_firmware.bin` | Main security sketch |
-| `v1_basic_alarm_firmware.bin` | V1 alarm with OTA support |
-| `firmware.bin` | OTA-ready firmware |
-| `version.txt` | Version number for OTA checks |
+```cpp
+#define FW_VERSION "2.00"  // ← This becomes the release tag!
+```
 
----
-
-## 📡 OTA Update System
-
-The firmware automatically checks for updates using these URLs:
-- **Version:** `https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/docs/version.txt`
-- **Firmware:** `https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/docs/firmware.bin`
-
-The GitHub Action **automatically updates** `docs/version.txt` and `docs/firmware.bin` on every release!
+**To create a new release:**
+1. Change `FW_VERSION` in your code (e.g., `"2.01"`)
+2. Commit and push
+3. GitHub Actions creates release `v2.01` automatically!
 
 ---
 
-## ⚙️ Workflow Features
+## 🔧 Hardware Setup
 
-- ✅ **Automatic ESP8266 core installation**
-- ✅ **Compiles both sketches** (securite + v1_basic_alarm)
-- ✅ **Creates GitHub releases with all binaries**
-- ✅ **Updates OTA files in docs/ folder**
-- ✅ **Verifies OTA URLs are accessible**
-- ✅ **Works on push, tags, and manual trigger**
+| Component | Pin |
+|-----------|-----|
+| PIR Sensor | D5 |
+| LED | D6 |
+| Buzzer | D7 |
+| Button | D3 |
 
 ---
 
-## 🔧 Required Repository Settings
+## 📡 OTA Update Flow
+
+```
+┌──────────────────┐
+│ Change FW_VERSION│
+│ in code & push   │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│  GitHub Actions  │
+│  compiles code   │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Creates release  │
+│ v{FW_VERSION}    │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Updates docs/    │
+│ firmware.bin     │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ ESP8266 checks   │
+│ every 5 minutes  │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Auto-downloads   │
+│ new firmware!    │
+└──────────────────┘
+```
+
+---
+
+## ⚙️ Repository Setup (One Time)
 
 ### 1. Enable Workflow Permissions
-Go to: **Settings → Actions → General → Workflow permissions**
-- Select: **"Read and write permissions"**
-- Check: **"Allow GitHub Actions to create and approve pull requests"**
 
-### 2. No Secrets Required!
-The workflow uses `GITHUB_TOKEN` which is automatically provided.
+Go to **Settings → Actions → General → Workflow permissions**:
+- ✅ Select **"Read and write permissions"**
+- ✅ Check **"Allow GitHub Actions to create and approve pull requests"**
+- Click **Save**
+
+### 2. That's it!
+
+No secrets or tokens needed - uses built-in `GITHUB_TOKEN`.
 
 ---
 
-## 📁 Repository Structure
+## 📁 Project Structure
 
 ```
-├── .github/
-│   └── workflows/
-│       └── build-and-release.yml    # CI/CD workflow
+├── .github/workflows/
+│   ├── build-and-release.yml   # Main CI/CD workflow
+│   └── test-build.yml          # Simple test
 ├── docs/
-│   ├── version.txt                  # Auto-updated by CI
-│   ├── firmware.bin                 # Auto-updated by CI
-│   └── COMPILATION_STEPS.md
+│   ├── firmware.bin            # Auto-updated by CI
+│   └── version.txt             # Auto-updated by CI
 ├── securite/
-│   └── securite.ino                 # Main sketch
+│   └── securite.ino            # Basic alarm sketch
 ├── v1_basic_alarm/
-│   └── v1_basic_alarm.ino           # OTA-enabled sketch
+│   └── v1_basic_alarm.ino      # OTA-enabled sketch (main)
 └── README.md
 ```
 
@@ -107,30 +148,26 @@ The workflow uses `GITHUB_TOKEN` which is automatically provided.
 
 ## 🐛 Troubleshooting
 
-### Build Fails?
-1. Check the Actions tab for error logs
-2. Ensure sketch compiles locally in Arduino IDE first
-3. Check that all `#include` statements use standard library names
+### Build fails?
+- Check Actions tab for error logs
+- Ensure code compiles locally first
 
-### OTA Not Working?
-1. Verify `docs/firmware.bin` exists in repository
-2. Check that `docs/version.txt` has correct version number
-3. Test URLs manually in browser
-4. Ensure ESP8266 has internet access
+### OTA not updating?
+- Verify `GITHUB_USER` and `GITHUB_REPO` in code
+- Check Serial Monitor for error messages
+- Ensure `docs/firmware.bin` exists in repo
 
-### Release Not Created?
-1. For tagged releases, tag must start with `v` (e.g., `v2.01`)
-2. Check workflow permissions in repository settings
-3. Look at Actions tab for errors
+### Release not created?
+- Version must be different from existing tags
+- Check workflow permissions in Settings
 
 ---
 
-## 📞 Support
+## 📋 Version History
 
-If you encounter issues:
-1. Check the **Actions** tab for build logs
-2. Open an **Issue** with error details
-3. Include your Arduino IDE version and ESP8266 core version
+| Version | Changes |
+|---------|---------|
+| 2.00 | Initial release with OTA |
 
 ---
 

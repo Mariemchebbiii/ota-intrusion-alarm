@@ -6,14 +6,22 @@
 
 #define FW_VERSION "2.00"
 
-const char* WIFI_SSID = "TOPNET_2FB0";
-const char* WIFI_PASS = "3m3smnb68l";
+// ============================================
+// ⚠️ CONFIGURATION - UPDATE THESE VALUES!
+// ============================================
+const char* WIFI_SSID = "YOUR_WIFI_SSID";      // Your WiFi network name
+const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";  // Your WiFi password
 
-// ✅ Correct GitHub RAW URLs
+// GitHub repository settings (CHANGE TO YOUR REPO!)
+#define GITHUB_USER "YOUR_GITHUB_USERNAME"     // Your GitHub username
+#define GITHUB_REPO "ota-intrusion-alarm"      // Your repository name
+#define GITHUB_BRANCH "main"                   // Branch name
+
+// ✅ Auto-generated OTA URLs (no need to modify these)
 const char* VERSION_URL =
-  "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/version.txt";
+  "https://raw.githubusercontent.com/" GITHUB_USER "/" GITHUB_REPO "/" GITHUB_BRANCH "/docs/version.txt";
 const char* FW_URL =
-  "https://raw.githubusercontent.com/Mariemchebbiii/ota-intrusion-alarm/main/docs/firmware.bin";
+  "https://raw.githubusercontent.com/" GITHUB_USER "/" GITHUB_REPO "/" GITHUB_BRANCH "/docs/firmware.bin";
 
   
 
@@ -24,6 +32,8 @@ const char* FW_URL =
 
 bool armed = true;
 bool alarmOn = false;
+unsigned long lastOTACheck = 0;
+const unsigned long OTA_CHECK_INTERVAL = 300000; // Check for updates every 5 minutes
 
 // Test if firmware URL is accessible
 bool testFirmwareURL() {
@@ -251,15 +261,42 @@ void setup() {
 void loop() {
   ArduinoOTA.handle();
 
-  if (digitalRead(BTN_PIN) == LOW) {
-    armed = !armed;
-    delay(500);
+  // Periodic OTA check (every 5 minutes)
+  if (millis() - lastOTACheck > OTA_CHECK_INTERVAL) {
+    lastOTACheck = millis();
+    Serial.println("Periodic OTA check...");
+    checkForUpdate();
   }
 
+  // Button handling with debounce
+  if (digitalRead(BTN_PIN) == LOW) {
+    delay(50); // Debounce
+    if (digitalRead(BTN_PIN) == LOW) {
+      armed = !armed;
+      alarmOn = false;  // Reset alarm when toggling armed state
+      Serial.printf("System %s\n", armed ? "ARMED" : "DISARMED");
+      
+      // Visual feedback
+      for (int i = 0; i < 3; i++) {
+        digitalWrite(LED_PIN, HIGH);
+        delay(100);
+        digitalWrite(LED_PIN, LOW);
+        delay(100);
+      }
+      
+      while (digitalRead(BTN_PIN) == LOW) delay(10); // Wait for release
+    }
+  }
+
+  // Motion detection
   if (armed && digitalRead(PIR_PIN) == HIGH) {
+    if (!alarmOn) {
+      Serial.println("⚠️ INTRUSION DETECTED!");
+    }
     alarmOn = true;
   }
 
+  // Alarm output
   if (alarmOn) {
     digitalWrite(LED_PIN, HIGH);
     digitalWrite(BUZZER_PIN, HIGH);
