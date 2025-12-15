@@ -239,7 +239,7 @@ void checkForOTAUpdate() {
   for (int retry = 1; retry <= 3; retry++) {
     Serial.printf("[OTA] Attempt %d/3...\n", retry);
     
-    if (performOTAUpdate()) {
+    if (performOTAUpdate(remoteVersion)) {
       // If we get here, update failed but we can retry
       Serial.println("[OTA] Retrying in 5 seconds...");
       delay(5000);
@@ -255,7 +255,7 @@ void checkForOTAUpdate() {
 // =====================================================
 // PERFORM OTA UPDATE - ESP32 EDITION (FAST & RELIABLE!)
 // =====================================================
-bool performOTAUpdate() {
+bool performOTAUpdate(String newVersion) {
   // Use HTTPS (GitHub requires it)
   WiFiClientSecure client;
   client.setInsecure();  // Skip certificate validation for simplicity
@@ -265,8 +265,8 @@ bool performOTAUpdate() {
   httpUpdate.rebootOnUpdate(true);
   httpUpdate.setFollowRedirects(HTTPC_FORCE_FOLLOW_REDIRECTS);
   
-  // Build firmware URL dynamically from current version (PERMANENT FIX!)
-  String firmwareUrl = "https://github.com/" + String(GITHUB_REPO) + "/releases/download/v" + String(FW_VERSION) + "/firmware.bin";
+  // Build firmware URL using the NEW version (not current!) - THIS IS THE FIX!
+  String firmwareUrl = "https://github.com/" + String(GITHUB_REPO) + "/releases/download/v" + newVersion + "/firmware.bin";
   
   // ANTI-CACHE: Add unique query params to bypass all caching
   firmwareUrl += "?nocache=" + String(millis()) + String(random(10000));
