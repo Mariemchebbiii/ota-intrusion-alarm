@@ -19,13 +19,13 @@
 // =====================================================
 // FIRMWARE VERSION - CHANGE ONLY THIS ONE LINE!
 // =====================================================
-#define FW_VERSION "11.00"
+#define FW_VERSION "12.00"
 
 // =====================================================
 // WIFI CONFIGURATION
 // =====================================================
-const char* WIFI_SSID = "iPhone de Mariem";
-const char* WIFI_PASS = "987654321";
+const char* WIFI_SSID = "Tecno spark 5 pro";
+const char* WIFI_PASS ="1234567890";
 
 // =====================================================
 // OTA URLs - AUTO-GENERATED FROM VERSION (Don't edit!)
@@ -208,6 +208,11 @@ void checkForOTAUpdate() {
   
   if (httpCode != HTTP_CODE_OK) {
     Serial.printf("[OTA] API request failed: %d\n", httpCode);
+    String errorResponse = http.getString();
+    Serial.println("[OTA] API Error Response:");
+    Serial.println(errorResponse);
+    Serial.println("[OTA] API URL was:");
+    Serial.println(apiUrl);
     http.end();
     return;
   }
