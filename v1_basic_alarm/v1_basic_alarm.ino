@@ -19,13 +19,13 @@
 // =====================================================
 // FIRMWARE VERSION - CHANGE ONLY THIS ONE LINE!
 // =====================================================
-#define FW_VERSION "10.00"
+#define FW_VERSION "11.00"
 
 // =====================================================
 // WIFI CONFIGURATION
 // =====================================================
-const char* WIFI_SSID = "TOPNET_2FB0";
-const char* WIFI_PASS = "3m3smnb68l";
+const char* WIFI_SSID = "iPhone de Mariem";
+const char* WIFI_PASS = "987654321";
 
 // =====================================================
 // OTA URLs - AUTO-GENERATED FROM VERSION (Don't edit!)
